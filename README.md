@@ -1,13 +1,22 @@
 # spark-set-udaf
 A library offering spark user defined aggregation functions (udaf) on apache theta sketches
 
-## Installation
+## Installation java 17
 
 ```XML
 <dependency>
     <groupId>io.github.jaihind213</groupId>
     <artifactId>spark-set-udaf</artifactId>
-    <version>spark3.5.2-scala2.13-1.0.0</version>
+    <version>spark3.5.2-scala2.13-1.0.1</version>
+</dependency>
+```
+
+## Installation java 11
+```
+<dependency>
+    <groupId>io.github.jaihind213</groupId>
+    <artifactId>spark-set-udaf</artifactId>
+    <version>spark3.5.2-scala2.13-1.0.0-jdk11</version>
 </dependency>
 ```
 
