@@ -1,7 +1,5 @@
 package io.github.jaihind213;
 
-import static io.github.jaihind213.SetAggregator.SET_SKETCH_UDAF_FUNCTION_NAME;
-
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.datasketches.memory.Memory;
@@ -48,18 +46,7 @@ public class SetAggregatorTest {
       dataFrame2.createOrReplaceTempView("city2");
 
       // register udaff
-      SetAggregator setAggregator = new SetAggregator();
-      spark
-          .udf()
-          .register(
-              SET_SKETCH_UDAF_FUNCTION_NAME, functions.udaf(setAggregator, Encoders.STRING()));
-
-      SetUnionAggregator setUnionAggregator = new SetUnionAggregator(nominal, seed);
-      spark.udf().register("set_union", functions.udaf(setUnionAggregator, Encoders.BINARY()));
-
-      spark
-          .udf()
-          .register("estimate_set", new SetAggregator.EstimateSetUdf(), DataTypes.DoubleType);
+      SetAggregator.register(spark, nominal, seed);
 
       Dataset<Row> df1 = spark.sql("select set_sketch(city) as city_set from city1");
       byte[] set1Bytes = (byte[]) df1.first().get(0);
@@ -124,19 +111,7 @@ public class SetAggregatorTest {
       Dataset<Row> dataFrame2 = spark.createDataFrame(rows, schema);
       dataFrame2.createOrReplaceTempView("city2");
 
-      // register udaff
-      SetAggregator setAggregator = new SetAggregator();
-      spark
-          .udf()
-          .register(
-              SET_SKETCH_UDAF_FUNCTION_NAME, functions.udaf(setAggregator, Encoders.STRING()));
-
-      SetUnionAggregator setUnionAggregator = new SetUnionAggregator(nominal, seed);
-      spark.udf().register("set_union", functions.udaf(setUnionAggregator, Encoders.BINARY()));
-
-      spark
-          .udf()
-          .register("estimate_set", new SetAggregator.EstimateSetUdf(), DataTypes.DoubleType);
+      SetAggregator.register(spark, nominal, seed);
 
       // Set estimate using sql
       Dataset<Row> estimateDf =

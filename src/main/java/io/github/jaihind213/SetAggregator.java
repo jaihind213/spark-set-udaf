@@ -8,6 +8,7 @@ import org.apache.datasketches.theta.*;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.api.java.UDF1;
 import org.apache.spark.sql.expressions.Aggregator;
+import org.apache.spark.sql.types.DataTypes;
 
 /** Aggregator implementing addition of an element to a set sketch. */
 public class SetAggregator extends Aggregator<String, byte[], byte[]> implements Serializable {
@@ -85,5 +86,18 @@ public class SetAggregator extends Aggregator<String, byte[], byte[]> implements
     public Double call(byte[] setSketch) throws Exception {
       return Sketches.heapifyCompactSketch(Memory.wrap(setSketch)).getEstimate();
     }
+  }
+
+  public static void register(SparkSession spark, int nominalEntries, long seed) {
+    SetAggregator setAggregator = new SetAggregator();
+    spark
+        .udf()
+        .register(SET_SKETCH_UDAF_FUNCTION_NAME, functions.udaf(setAggregator, Encoders.STRING()));
+
+    SetUnionAggregator setUnionAggregator = new SetUnionAggregator(nominalEntries, seed);
+    spark.udf().register("set_union", functions.udaf(setUnionAggregator, Encoders.BINARY()));
+
+    spark.udf().register("estimate_set", new SetAggregator.EstimateSetUdf(), DataTypes.DoubleType);
+    System.err.println("SPARK SET UDF REGISTRATION COMPLETE.........");
   }
 }
