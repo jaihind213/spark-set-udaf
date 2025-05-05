@@ -1,0 +1,261 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+
+  <groupId>io.github.jaihind213</groupId>
+  <artifactId>spark-set-udaf</artifactId>
+  <version>spark3.5.2-scala2.13-1.0.0</version>
+  <packaging>jar</packaging>
+
+
+  <name>spark-set-udaf</name>
+  <url>https://github.com/jaihind213/spark-set-udaf</url>
+  <description>A library offering spark user defined aggregation functions udaf on apache theta sketches</description>
+
+  <developers>
+    <developer>
+      <id>jaihind213</id>
+      <name>Vishnu</name>
+      <email>jaihind213@gmail.com</email>
+      <organizationUrl>bytespire.io</organizationUrl>
+    </developer>
+  </developers>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <properties>
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <log4j.version>2.20.0</log4j.version>
+    <spark.version>3.5.2</spark.version>
+    <scala.version>2.13.10</scala.version>
+  </properties>
+
+
+
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.1</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.20.0</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>2.20.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_2.13</artifactId>
+      <version>${spark.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_2.13</artifactId>
+      <version>${spark.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-library</artifactId>
+      <version>${scala.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.datasketches</groupId>
+      <artifactId>datasketches-java</artifactId>
+      <version>6.0.0</version>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>8</source>
+          <target>17</target>
+          <compilerArgs>
+            <arg>--add-opens</arg>
+            <arg>java.base/jdk.internal.ref=ALL-UNNAMED</arg>
+            <arg>--add-opens</arg>
+            <arg>java.base/sun.nio.ch=ALL-UNNAMED</arg>
+            <arg>--add-exports</arg>
+            <arg>java.base/sun.nio.ch=ALL-UNNAMED</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+               <version>3.0.0-M5</version>
+              <configuration>
+                <forkCount>1</forkCount>
+                <reuseForks>true</reuseForks>
+                <argLine>
+                  --illegal-access=permit
+                  --add-opens java.base/java.lang=ALL-UNNAMED
+                  --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+                  --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED
+                  --add-exports java.naming/com.sun.jndi.ldap=ALL-UNNAMED
+                  --add-opens java.naming/com.sun.jndi.ldap=ALL-UNNAMED
+                  --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+                  --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+                  --add-opens java.base/java.nio=ALL-UNNAMED
+                  --add-opens java.base/java.util=ALL-UNNAMED
+                  --add-exports java.base/sun.nio.ch=ALL-UNNAMED
+                  -XX:+UseG1GC
+                  -Xmx1g
+                </argLine>
+              </configuration>
+            </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.2</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>jar-with-dependencies</shadedClassifierName>
+              <filters>
+              </filters>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <!--we need to add this, else our masking log4j plugin removes all the default plugins in Log4j2Plugins.dat. -->
+                <!--by this doing, all the default ones are kept and our masking plugin is added to list in Log4j2Plugins.dat -->
+                <transformer
+                        implementation="io.github.edwgiz.log4j.maven.plugins.shade.transformer.Log4j2PluginCacheFileTransformer">
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>io.github.edwgiz</groupId>
+            <artifactId>log4j-maven-shade-plugin-extensions</artifactId>
+            <version>2.20.0</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>2.43.0</version>
+        <executions>
+          <execution>
+            <id>spotless</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>1.11.0</version>
+            </googleJavaFormat>
+            <!-- Enable or disable formatting annotations -->
+            <!-- <formatAnnotations>true</formatAnnotations> -->
+          </java>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.7.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.6.3</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Sources JAR -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- RUN gpg - -list-signatures - -keyid-format 0xshort ... LINE 3 has it in hex-->
+          <keyname>${env.GPG_KEYNAME}</keyname>
+          <passphraseServerId>${env.GPG_KEYNAME}</passphraseServerId>
+          <gpgArguments>
+            <arg>--pinentry-mode</arg>
+            <arg>loopback</arg>
+          </gpgArguments>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+
+
+  <scm>
+    <url>https://github.com/jaihind213/spark-set-udaf</url>
+    <connection>scm:git:git://github.com/jaihind213/spark-set-udaf.git</connection>
+    <developerConnection>scm:git:ssh://github.com:jaihind213/spark-set-udaf.git</developerConnection>
+    <tag>${version}</tag>
+  </scm>
+</project>
