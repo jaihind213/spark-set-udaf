@@ -40,5 +40,5 @@ jobs:
         mvn spotless:check
     - name: Run tests, build jar
       run: |
-        mvn clean compile test
-        mvn clean package -DskipTests
+        mvn clean compile test -DTEST_NUM_ENTRIES=10000
+        mvn clean package -DskipTests 
