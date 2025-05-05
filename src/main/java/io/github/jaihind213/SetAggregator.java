@@ -6,6 +6,7 @@ import java.io.Serializable;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.*;
 import org.apache.spark.sql.*;
+import org.apache.spark.sql.api.java.UDF1;
 import org.apache.spark.sql.expressions.Aggregator;
 
 /** Aggregator implementing addition of an element to a set sketch. */
@@ -72,5 +73,17 @@ public class SetAggregator extends Aggregator<String, byte[], byte[]> implements
   @Override
   public Encoder<byte[]> outputEncoder() {
     return Encoders.BINARY();
+  }
+
+  public static class EstimateSetUdf implements UDF1<byte[], Double> {
+
+    private static final long serialVersionUID = 3673392114521265088L;
+
+    public EstimateSetUdf() {}
+
+    @Override
+    public Double call(byte[] setSketch) throws Exception {
+      return Sketches.heapifyCompactSketch(Memory.wrap(setSketch)).getEstimate();
+    }
   }
 }

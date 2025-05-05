@@ -18,7 +18,7 @@ import org.junit.Test;
 public class SetAggregatorTest {
 
   @Test
-  public void testSetAggregation() {
+  public void testSetAddition() {
     int nominal = 4096;
     long seed = 9001;
 
@@ -54,6 +54,13 @@ public class SetAggregatorTest {
           .register(
               SET_SKETCH_UDAF_FUNCTION_NAME, functions.udaf(setAggregator, Encoders.STRING()));
 
+      SetUnionAggregator setUnionAggregator = new SetUnionAggregator(nominal, seed);
+      spark.udf().register("set_union", functions.udaf(setUnionAggregator, Encoders.BINARY()));
+
+      spark
+          .udf()
+          .register("estimate_set", new SetAggregator.EstimateSetUdf(), DataTypes.DoubleType);
+
       Dataset<Row> df1 = spark.sql("select set_sketch(city) as city_set from city1");
       byte[] set1Bytes = (byte[]) df1.first().get(0);
       CompactSketch sketch1 = Sketches.heapifyCompactSketch(Memory.wrap(set1Bytes));
@@ -62,7 +69,6 @@ public class SetAggregatorTest {
       Assert.assertTrue("set addition error should be less than 3%", setAdditionPercentError < 3.0);
 
       Dataset<Row> df2 = spark.sql("select set_sketch(city) as city_set from city2");
-
       byte[] setBytes2 = (byte[]) df2.first().get(0);
       CompactSketch sketch2 = Sketches.heapifyCompactSketch(Memory.wrap(setBytes2));
 
@@ -82,6 +88,74 @@ public class SetAggregatorTest {
           getPercentError(intersectionSketch.getEstimate(), numRows / 2);
       Assert.assertTrue(
           "set intersection error should be less than 3%", setIntersectinPctError < 3.0);
+
+    } finally {
+      spark.close();
+    }
+  }
+
+  @Test
+  public void testSetUnion() {
+    int nominal = 4096;
+    long seed = 9001;
+
+    SparkSession spark = SparkSession.builder().appName("Test").master("local[*]").getOrCreate();
+    try {
+      StructType schema =
+          new StructType()
+              .add("city", DataTypes.StringType, false)
+              .add("count_", DataTypes.IntegerType, false);
+      List<Row> rows = new ArrayList<>();
+      final int numRows = Integer.parseInt(System.getProperty("TEST_NUM_ENTRIES", "1000000"));
+
+      // superset creation = set1
+      for (int i = 0; i < numRows; i++) {
+        rows.add(RowFactory.create("city_" + i, i));
+      }
+
+      Dataset<Row> dataFrame1 = spark.createDataFrame(rows, schema);
+      dataFrame1.createOrReplaceTempView("city1");
+
+      // subset creation set2
+      rows.clear();
+      for (int i = 0; i < (numRows / 2); i++) {
+        rows.add(RowFactory.create("city_" + i, i));
+      }
+      Dataset<Row> dataFrame2 = spark.createDataFrame(rows, schema);
+      dataFrame2.createOrReplaceTempView("city2");
+
+      // register udaff
+      SetAggregator setAggregator = new SetAggregator();
+      spark
+          .udf()
+          .register(
+              SET_SKETCH_UDAF_FUNCTION_NAME, functions.udaf(setAggregator, Encoders.STRING()));
+
+      SetUnionAggregator setUnionAggregator = new SetUnionAggregator(nominal, seed);
+      spark.udf().register("set_union", functions.udaf(setUnionAggregator, Encoders.BINARY()));
+
+      spark
+          .udf()
+          .register("estimate_set", new SetAggregator.EstimateSetUdf(), DataTypes.DoubleType);
+
+      // Set estimate using sql
+      Dataset<Row> estimateDf =
+          spark.sql("select estimate_set(set_sketch(city)) as city_set from city1");
+      double estimateFromSQL = (double) estimateDf.first().get(0);
+      Assert.assertTrue(
+          "Set addition error should be less than 3%",
+          getPercentError(estimateFromSQL, numRows) < 3.0);
+
+      // set union using sql
+      String sql =
+          "SELECT estimate_set(set_union(sets)) AS estimate\n"
+              + "FROM (\n"
+              + "  SELECT set_sketch(city) AS sets FROM city1\n"
+              + "  UNION ALL\n"
+              + "  SELECT set_sketch(city) AS sets FROM city2\n"
+              + ") sub;";
+      Dataset<Row> unionEstimateDf = spark.sql(sql);
+      Assert.assertEquals(estimateFromSQL, unionEstimateDf.first().get(0));
 
     } finally {
       spark.close();
